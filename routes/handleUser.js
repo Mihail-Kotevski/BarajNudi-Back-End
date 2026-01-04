@@ -3,8 +3,31 @@ const HandleUser = express.Router();
 
 //MongoDB user model
 import User from "../models/Users.js";
+
+//MongoDB user verification model
+import UserVerification from "../models/UserVerification.js";
+
+//Email handler
+import nodemailer from"nodemailer";
+
+//Unique string generator
+import {v4} from "uuid" ;
+
+//env variables
+import dotenv from "dotenv";
+dotenv.config();
+
 //Password hashing
 import bcrypt from "bcryptjs";
+
+//nodemailer transporter
+let transporter=nodemailer.createTransport({
+  service:"Gmail",
+  auth:{
+    user:process.env.AUTH_EMAIL,
+    pass:process.env.AUTH_PASSWORD
+  }
+});
 
 // User sign up
 HandleUser.post("/signup", async (req, res) => {
@@ -35,10 +58,11 @@ HandleUser.post("/signup", async (req, res) => {
             name,
             email,
             password: hashedPassword,
-            dateOfBirth
+            dateOfBirth,
+            verified: false
           });
-          user.save().then((user) => {
-            res.status(201).json({status:"Success!",message: "User created successfully!"}).catch((err) => {
+          user.save().then((data) => {
+            sendVerificationEmail(data,res).catch((err) => {
               console.log(err)
               res.json({
                 status:"Failed!",
@@ -62,6 +86,8 @@ HandleUser.post("/signup", async (req, res) => {
   })
   }       
 });
+
+//Function to send verification email
 
 //User sign in
 HandleUser.post("/signin",async(req,res)=>{
