@@ -20,15 +20,6 @@ dotenv.config();
 //Password hashing
 import bcrypt from "bcryptjs";
 
-//nodemailer transporter
-let transporter=nodemailer.createTransport({
-  service:"Gmail",
-  auth:{
-    user:process.env.AUTH_EMAIL,
-    pass:process.env.AUTH_PASSWORD
-  }
-});
-
 // User sign up
 HandleUser.post("/signup", async (req, res) => {
   let { name, email, password ,dateOfBirth} = req.body;
