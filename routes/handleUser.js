@@ -8,10 +8,10 @@ import User from "../models/Users.js";
 import UserVerification from "../models/UserVerification.js";
 
 //Email handler
-import nodemailer from"nodemailer";
+import nodemailer from "nodemailer";
 
 //Unique string generator
-import {v4} from "uuid" ;
+import { v4 as uuidv4 } from 'uuid';
 
 //env variables
 import dotenv from "dotenv";
@@ -35,7 +35,7 @@ HandleUser.post("/signup", async (req, res) => {
   }else if(!/^[\w\.-]+@([\w-]+\.)+[\w-]{2,}$/.test(email)){
     return res.status(422).json({error: "Please enter a valid email!!"});
   }else if(password.length < 8){
-    return res.status(422).json({error: "Password must be at least 6 characters!"});
+    return res.status(422).json({error: "Password must be at least 8 characters!"});
   } else if(!new Date(dateOfBirth).getTime()){
     return res.status(422).json({error: "Please enter a valid date of birth!"});
   }else{
@@ -53,21 +53,16 @@ HandleUser.post("/signup", async (req, res) => {
             verified: false
           });
           user.save().then((data) => {
-            sendVerificationEmail(data,res).catch((err) => {
-              console.log(err)
-              res.json({
-                status:"Failed!",
-                message:"An error occurred while creating user!"
-              })
-            });
+            sendVerification(data,res);
       }).catch((err) => {
+        console.log(err)
         res.json({
           status:"Failed!",
           message:"An error occurred while hashing password!"
         })
       })
-  }).catch((err) => {
-    console.log(err)
+  }).catch((error) => {
+    console.log(error)
     res.json({
       status:"Failed!",
       message:"An error occurred while checking if user exists!"
@@ -80,24 +75,39 @@ HandleUser.post("/signup", async (req, res) => {
 
 //Function to send verification email
 const sendVerification=({_id,email},res) =>{
+  //url 
+  const currentUrl="http://localhost:3000/";
+  //mail transporter
+  const mailTransporter=nodemailer.createTransport({
+    service:"Gmail",
+    auth:{
+      user:process.env.AUTH_EMAIL,
+      pass:process.env.AUTH_PASSWORD
+    }
+  });
   //Generate unique string
-  const uniqueString = v4() + _id;
+  const uniqueString = uuidv4() + _id;
   //mail transporter
   const mailOptions={
-  from:process.env.EMAIL_USER,
+  from:process.env.AUTH_EMAIL,
   to:email,
   subject:"Please verify your email.",
+  html: `<p>Click <a href=${currentUrl + "user/verify/" + _id + "/" + uniqueString}>here</a> to verify your email.</p>`
   }
   //hash the unique string
-  bcrypt.hash(uniqueString, 10).then((hashedUniqueString) => {
+  bcrypt
+  .hash(uniqueString, 10)
+  .then((hashedUniqueString) => {
     const newVerification = new UserVerification({
       userId: _id,
       uniqueString: hashedUniqueString,
       createdAt: Date.now(),
       expiresAt: Date.now() + 21600000,
     })
-    newVerification.save().then((data) => {
-      mailTransporter.sendMail(mailOptions).then(() => {
+    newVerification.save()
+    .then((data) => {
+      mailTransporter.sendMail(mailOptions)
+      .then(() => {
         res.json({
           status:"Pending",
           message:"Verification email sent!"
@@ -106,14 +116,14 @@ const sendVerification=({_id,email},res) =>{
         console.log(err)
         res.json({
           status:"Failed!",
-          message:"An error occurred while sending verification email!"
+          message:"Verification email could not be sent!"
         })
       })
     }).catch((err) => {
       console.log(err)
       res.json({
         status:"Failed!",
-        message:"An error occurred while saving verification data!"
+        message:"Could not save verification email data!"
       })
     })
 }).catch((err) => {
@@ -126,8 +136,8 @@ const sendVerification=({_id,email},res) =>{
 };
 
 //verify email
-HandleUser.get("verify/:userId/:uniqueString", (req, res) => {
-  let{userId,uniqueString}=req.params
+HandleUser.get("/verify/:userId/:uniqueString", (req, res) => {
+  let {userId,uniqueString}=req.params
   UserVerification.find({userId}).then((data)=>{
     //Checking if verification id is expired
     if(data.length>0){
@@ -135,18 +145,18 @@ HandleUser.get("verify/:userId/:uniqueString", (req, res) => {
       const hashedUniqueString=data[0].uniqueString
       if(expiresAt<Date.now()){
         UserVerification.deleteOne({_id: userId}).then(data=>{
-          User.deleteOne({userId}).then((data)=>{
+          User.deleteOne({_id:userId}).then((data)=>{
             let message="Link has expired please sign up again!";
-            res.redirect(`/user/verification/error=true${message}`)
+            res.redirect(`/user/verification?error=true&message=${encodeURIComponent(message)}`)
           }).catch(error=>{
             console.log(error)
              let message="Clearing user with failed verification string has failed!";
-            res.redirect(`/user/verification/error=true${message}`)
+            res.redirect(`/user/verification?error=true&message=${encodeURIComponent(message)}`)
           })
         }).catch(error=>{
           console.log(error)
             let message="An error occured while clearing user verification record!";
-            res.redirect(`/user/verification/error=true${message}`)
+            res.redirect(`/user/verification?error=true&message=${encodeURIComponent(message)}`)
         })
       }else{
         //Valid user record
@@ -154,47 +164,46 @@ HandleUser.get("verify/:userId/:uniqueString", (req, res) => {
         if(data){ 
           User.updateOne({_id:userId},{verified:true}).then((data)=>{
             UserVerification.deleteOne({userId}).then((data)=>{
-              res.send.json({
-                status:"Succes!",
-                message:"Succesful verification"
+              res.json({
+                status:"Success!",
+                message:"Successful verification"
               })
             }).catch(error=>{
               console.log(error)
-              let message="An error occured while finalizing succesful user verification!";
-              res.redirect(`/user/verification/error=true${message}`)
+              let message="An error occured while finalizing successful user verification!";
+              res.redirect(`/user/verification?error=true&message=${encodeURIComponent(message)}`)
             })
           }).catch(()=>{
             console.log(error)
             let message="An error occured while updating user verification record!";
-            res.redirect(`/user/verification/error=true${message}`)
+            res.redirect(`/user/verification?error=true&message=${encodeURIComponent(message)}`)
           })
         }else{
             let message="Invalid verification details passed. Please check your inbox!";
-            res.redirect(`/user/verification/error=true${message}`)
+            res.redirect(`/user/verification?error=true&message=${encodeURIComponent(message)}`)
         }
-        }).data(error=>{
+        }).catch(error=>{
           console.log(error)
            let message="An error occured while comparing unique strings!";
-            res.redirect(`/user/verification/error=true${message}`)
+            res.redirect(`/user/verification?error=true&message=${encodeURIComponent(message)}`)
         })
       }
     }else{
       let message="Account does not exist or has been already verified. Please Sign up or log in.";
-      res.redirect(`/user/verification/error=true${message}`)
+      res.redirect(`/user/verification?error=true&message=${encodeURIComponent(message)}`)
     }
   }).catch((error)=>{
     console.log(error)
-      let message="Am errpr pccired while checking existing user vefification record";
-      res.redirect(`/user/verification/error=true${message}`)
+      let message="An error occurred while checking existing user verification record";
+      res.redirect(`/user/verification?error=true&message=${encodeURIComponent(message)}`)
   })
 })
 
-//Vefified page route
+//Verified page route
 HandleUser.get("/verified",(req,res)=>{
   res.json({
-    status:"Succes"
+    status:"Success"
   })
-  console.log(verified)
 })
 
 //User sign in
