@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Router } from "express";
 const HandleUser = express.Router();
 
 //MongoDB user model
@@ -12,6 +12,14 @@ import PasswordReset from "../models/PasswordReset.js";
 
 //Email handler
 import nodemailer from "nodemailer";
+
+const mailTransporter=nodemailer.createTransport({
+ service:"gmail",
+ auth:{
+ user:process.env.AUTH_EMAIL,
+ pass:process.env.AUTH_PASSWORD
+  }
+});
 
 //Unique string generator
 import { v4 as uuidv4 } from 'uuid';
@@ -80,14 +88,6 @@ HandleUser.post("/signup", async (req, res) => {
 const sendVerification=({_id,email},res) =>{
   //url 
   const currentUrl="http://localhost:3000/";
-  //mail transporter
-  const mailTransporter=nodemailer.createTransport({
-    service:"Gmail",
-    auth:{
-      user:process.env.AUTH_EMAIL,
-      pass:process.env.AUTH_PASSWORD
-    }
-  });
   //Generate unique string
   const uniqueString = uuidv4() + _id;
   //mail transporter
@@ -267,7 +267,7 @@ HandleUser.post("/signin",async(req,res)=>{
 })}});
 
 //Password reset request
-Router.post("/requestPasswordReset", async (req, res) => {
+HandleUser.post("/requestPasswordReset", async (req, res) => {
   let { email ,redirectUrl} = req.body;
 
   User.find({email})
@@ -299,4 +299,70 @@ Router.post("/requestPasswordReset", async (req, res) => {
   })
 })
 
+//Function to send password reset email
+const sendResetEmail = ({_id,email}, redirectUrl, res) => {
+  const resetString= uuidv4() + _id;
+  PasswordReset
+  //clearing existing password reset records
+  .deleteMany({userId: _id})
+  .then((data)=>{
+    //Handling reset password email
+     const mailOptions={
+     from:process.env.AUTH_EMAIL,
+     to:email,
+     subject:"Password reset.",
+     html: `<p>Click here to reset your password (Link will expire in 60 minutes) <a href=${redirectUrl + "/" + _id + "/" + resetString}>.</p>`
+  }
+  bcrypt.hash(resetString, 10)
+  .then((hashedResetString) => {
+    const newPasswordReset = new PasswordReset({
+      userId: _id,
+      resetString: hashedResetString,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 3600000,
+    })
+    newPasswordReset
+    .save()
+    .then((data) => {
+      mailTransporter
+      .sendMail(mailOptions)
+      .then(() => {
+        //Password reset email sent
+        res.json({
+          status:"Pending",
+          message:"Password reset email sent!"
+        })
+      })
+      .catch((err) => {
+        console.log(err)
+        res.json({
+          status:"Failed!",
+          message:"Password reset email could not be sent!"
+        })
+      })
+})
+    })
+    .catch((err) => {
+      console.log(err)
+      res.json({
+        status:"Failed!",
+        message:"Could not save password reset data!"
+      })
+    })
+  })
+  .catch((err) => {
+    console.log(err)
+    res.json({
+      status:"Failed!",
+      message:"An error occurred while hashing reset string!"
+    })
+  })
+  .catch(error=>{
+    console.log(error)
+    res.json({
+      status:"Failed!",
+      message:"An error occurred while clearing existing password reset records!"
+    })
+  })
+}
 export default HandleUser;
