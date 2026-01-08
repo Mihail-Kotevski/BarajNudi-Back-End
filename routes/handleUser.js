@@ -270,7 +270,7 @@ HandleUser.post("/signin",async(req,res)=>{
 Router.post("/requestPasswordReset", async (req, res) => {
   let { email ,redirectUrl} = req.body;
 
-  user.find({email})
+  User.find({email})
   .then((data)=>{
     if(data.length){
       //User exists // Checking if user is verified
