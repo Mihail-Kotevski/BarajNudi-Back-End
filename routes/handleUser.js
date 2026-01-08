@@ -7,6 +7,9 @@ import User from "../models/Users.js";
 //MongoDB user verification model
 import UserVerification from "../models/UserVerification.js";
 
+//MongoDB Password reset model
+import PasswordReset from "../models/PasswordReset.js";
+
 //Email handler
 import nodemailer from "nodemailer";
 
@@ -262,5 +265,38 @@ HandleUser.post("/signin",async(req,res)=>{
   message:"An error occurred while checking user existence!",
   error: err.message})
 })}});
+
+//Password reset request
+Router.post("/requestPasswordReset", async (req, res) => {
+  let { email ,redirectUrl} = req.body;
+
+  user.find({email})
+  .then((data)=>{
+    if(data.length){
+      //User exists // Checking if user is verified
+      if(!data[0].verified){
+        resizeTo.status(401).json({
+         status:"Failed!",
+         message:"Email has not been verified!"
+       })
+      }else{
+        //Email is verified // Send password reset email
+        sendResetEmail(data[0],redirectUrl,res);
+      }
+    }else{
+      res.status(404).json({
+        status:"Failed!",
+        message:"User with given email does not exist!"
+      })
+    }
+  })
+  .catch((err) => {
+    console.log(err)
+    res.json({
+      status:"Failed!",
+      message:"An error occurred while checking user existence!"
+    })
+  })
+})
 
 export default HandleUser;
