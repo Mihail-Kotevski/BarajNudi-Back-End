@@ -365,4 +365,10 @@ const sendResetEmail = ({_id,email}, redirectUrl, res) => {
     })
   })
 }
+
+//Password reset 
+HandleUser.post("/resetPassword", (req, res) => {
+
+})
+
 export default HandleUser;
