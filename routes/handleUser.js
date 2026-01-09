@@ -368,7 +368,95 @@ const sendResetEmail = ({_id,email}, redirectUrl, res) => {
 
 //Password reset 
 HandleUser.post("/resetPassword", (req, res) => {
+  let {userId,resetString,newPassword}=req.body
 
+  PasswordReset.find({userId})
+  .then((data)=>{
+  if(data.length>0){
+    const {expiresAt}=result[0]
+    const{hashedResetString}=result[0]
+    if (expiresAt<Date.now()){
+      PasswordReset.deleteOne(userId)
+      .then(()=>{
+          res.json({
+        status:"Failed!",
+        message:"Password reset link has expired!"
+    })
+      })
+      .catch((err)=>{
+        console.log(err)
+        res.json({
+        status:"Failed!",
+        message:"Failed to delete password reset request record!"
+    })
+      })
+    }else{
+      bcrypt.compare(resetString,hashedResetString)
+      .then((data)=>{
+        if(data){
+          bcrypt.hash(newPassword,10)
+          .then((newHashedPassword)=>{
+            User.updateOne({_id: userId},{password: newHashedPassword})
+            .then((data)=>{
+              PasswordReset.deleteOne({userId})
+              .then(()=>{
+                 res.json({
+                  status:"Succes!",
+                  message:"Password update succesful!"
+                })
+              })
+              .catch((err)=>{
+                  console.log(err)
+                  res.json({
+                  status:"Failed!",
+                  message:"An error occured while deleting password delete request record!"
+                })
+              })
+            })
+            .catch((err)=>{
+                console.log(err)
+            res.json({
+            status:"Failed!",
+            message:"An error occured while updating the old password!"
+              })
+            })
+          })
+          .catch((err)=>{
+            console.log(err)
+            res.json({
+            status:"Failed!",
+            message:"An error occured while hasing the new password!"
+    })
+          })
+        }else{
+          res.json({
+          status:"Failed!",
+          message:"Invalid password reset details!"
+    })
+        }
+      })
+      .catch((err)=>{
+        console.log(err)
+        res.json({
+        status:"Failed!",
+        message:"Comparing password reset strings has failed!"
+    })
+      })
+    }
+  }else{
+    res.json({
+      status:"Failed!",
+      message:"Checking for existing password reset record failed!"
+    })
+  }
+  })
+  .catch((err)=>{
+    console.log(err)
+    res.json({
+      status:"Failed!",
+      message:"An error occurred while checking password reset record!"
+    })
+  })
 })
 
 export default HandleUser;
