@@ -215,16 +215,15 @@ HandleUser.post("/signin",async(req,res)=>{
   email = email.trim();
   password = password.trim();
 
-  if(!email || !password){
+  if(email === "" || password === ""){
     return res.status(422).json({status:"Failed!",message:"Please fill all the fields!"})}
     else{
       //Check if user exist
       User.find({email}).then((data)=>{
-        if(!data[0].length){
-          //User exists
-
+        //User exists
+        if(data.length){
           //Check if user is verified
-          if(!data.verified){
+          if(!data[0].verified){
             res.status(401).json({
              status:"Failed!",
              message:"Email has not been verified!"
@@ -311,7 +310,7 @@ const sendResetEmail = ({_id,email}, redirectUrl, res) => {
      from:process.env.AUTH_EMAIL,
      to:email,
      subject:"Password reset.",
-     html: `<p>Click here to reset your password (Link will expire in 60 minutes) <a href=${redirectUrl + "/" + _id + "/" + resetString}>.</p>`
+     html: `<p>Click <a href=${redirectUrl + "/" + _id + "/" + resetString}>here</a> to reset your password (Link will expire in 60 minutes)</p>`
   }
   bcrypt.hash(resetString, 10)
   .then((hashedResetString) => {
@@ -373,8 +372,9 @@ HandleUser.post("/resetPassword", (req, res) => {
   PasswordReset.find({userId})
   .then((data)=>{
   if(data.length>0){
-    const {expiresAt}=result[0]
-    const{hashedResetString}=result[0]
+    const {expiresAt} = data[0]
+    const hashedResetString = data[0].resetString
+
     if (expiresAt<Date.now()){
       PasswordReset.deleteOne(userId)
       .then(()=>{
@@ -397,7 +397,7 @@ HandleUser.post("/resetPassword", (req, res) => {
           bcrypt.hash(newPassword,10)
           .then((newHashedPassword)=>{
             User.updateOne({_id: userId},{password: newHashedPassword})
-            .then((data)=>{
+            .then(()=>{
               PasswordReset.deleteOne({userId})
               .then(()=>{
                  res.json({
