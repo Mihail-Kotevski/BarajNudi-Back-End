@@ -8,6 +8,18 @@ const app = express();
 const PORT = process.env.PORT;
 const DB_URI = process.env.DB_CONNECT;
 
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  
+  // Handle preflight OPTIONS request
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 //Middleware
 app.use(express.json());
 
