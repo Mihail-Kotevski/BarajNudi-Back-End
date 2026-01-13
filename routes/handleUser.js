@@ -41,7 +41,7 @@ HandleUser.post("/signup", async (req, res) => {
 
   if(!name || !email || !password || !dateOfBirth){
     return res.status(422).json({error: "Please fill all the fields!"});
-  }else if(!/^[a-zA-Z]+$/.test(name)){
+  }else if(!/^[A-Za-z\s]+$/.test(name)){
     return res.status(422).json({error: "Please enter a valid name!"});
   }else if(!/^[\w\.-]+@([\w-]+\.)+[\w-]{2,}$/.test(email)){
     return res.status(422).json({error: "Please enter a valid email!!"});
@@ -87,7 +87,7 @@ HandleUser.post("/signup", async (req, res) => {
 //Function to send verification email
 const sendVerification=({_id,email},res) =>{
   //url 
-  const currentUrl="http://localhost:3000/";
+  const currentUrl="http://localhost:5000/";
   //Generate unique string
   const uniqueString = uuidv4() + _id;
   //mail transporter
